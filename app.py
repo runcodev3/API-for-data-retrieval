@@ -9,7 +9,6 @@ app = Flask(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# 🔥 AI (Router + fallback + retry)
 def ai_process(text):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -18,7 +17,6 @@ def ai_process(text):
         "Content-Type": "application/json"
     }
 
-    # 🔥 ใช้ Router ก่อน แล้ว fallback
     models = [
         "openrouter/free",
         "mistralai/mistral-7b-instruct:free",
@@ -78,7 +76,6 @@ CONTENT:
     return None, None
 
 
-# 🔥 ดึงข้อมูลเว็บ
 def extract_all(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
@@ -91,7 +88,6 @@ def extract_all(url):
 
     data["title"] = soup.title.string if soup.title else "No Title"
 
-    # 🔥 เนื้อหาเต็ม
     content = []
     for tag in soup.find_all(["h1", "h2", "h3", "p", "li"]):
         text = tag.get_text(strip=True)
@@ -100,7 +96,6 @@ def extract_all(url):
 
     full_text = " ".join(content)
 
-    # 🔥 ใช้ AI เท่านั้น
     summary, rewritten = ai_process(full_text)
 
     if summary is None:
@@ -109,7 +104,6 @@ def extract_all(url):
     data["summary"] = summary
     data["full_text"] = rewritten
 
-    # 🔥 รูป
     images = []
     for img in soup.find_all("img"):
         src = img.get("src")
@@ -118,7 +112,6 @@ def extract_all(url):
 
     data["images"] = list(set(images))[:20]
 
-    # 🔥 ลิงก์
     links = []
     for a in soup.find_all("a"):
         href = a.get("href")
