@@ -1,74 +1,57 @@
 from flask import Flask, render_template, request
 import requests
 from bs4 import BeautifulSoup
-from newspaper import Article
+from urllib.parse import urljoin
 import os
 
 app = Flask(__name__)
 
 def extract_all(url):
+    headers = {"User-Agent": "Mozilla/5.0"}
+    res = requests.get(url, headers=headers, timeout=10)
+    soup = BeautifulSoup(res.text, "html.parser")
+
     data = {}
 
-    try:
-        # 🔥 วิธี 1: Newspaper (ฉลาด)
-        article = Article(url)
-        article.download()
-        article.parse()
+    # ✅ title
+    data["title"] = soup.title.string if soup.title else "No Title"
 
-        data["title"] = article.title
-        data["text"] = article.text
-        data["images"] = list(article.images)
-
-    except:
-        data["title"] = ""
-        data["text"] = ""
-        data["images"] = []
-
-    try:
-        # 🔥 วิธี 2: BeautifulSoup (เก็บเพิ่ม)
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
-
-        if not data["title"]:
-            data["title"] = soup.title.string if soup.title else "No Title"
-
-        # ดึงข้อความทั้งหมด
-        paragraphs = [p.get_text() for p in soup.find_all("p")]
-        data["text_full"] = " ".join(paragraphs)
-
-        # ดึงรูป
-        imgs = [img.get("src") for img in soup.find_all("img")]
-        data["images"] += imgs
-
-        # ดึงลิงก์
-        links = [a.get("href") for a in soup.find_all("a")]
-        data["links"] = links[:50]
-
-        # meta
-        meta = {}
-        for tag in soup.find_all("meta"):
-            if tag.get("name") and tag.get("content"):
-                meta[tag.get("name")] = tag.get("content")
-        data["meta"] = meta
-
-    except:
-        data["text_full"] = ""
-        data["links"] = []
-        data["meta"] = {}
-
-    # 🔥 รวมข้อความ
-    full_text = data.get("text") + " " + data.get("text_full")
-
-    # 🔥 เรียบเรียง (ง่ายๆ)
-    sentences = full_text.split(".")
-    summary = ". ".join(sentences[:5])
-
-    data["summary"] = summary
+    # ✅ เนื้อหา (paragraph)
+    paragraphs = [p.get_text() for p in soup.find_all("p")]
+    full_text = " ".join(paragraphs)
     data["full_text"] = full_text
 
-    # ตัดรูปซ้ำ
-    data["images"] = list(set(data["images"]))[:10]
+    # ✅ summary (เอา 5 ประโยคแรก)
+    sentences = full_text.split(".")
+    data["summary"] = ". ".join(sentences[:5])
+
+    # ✅ 🔥 รูป (แก้สำคัญ: urljoin)
+    images = []
+    for img in soup.find_all("img"):
+        src = img.get("src")
+        if src:
+            full_url = urljoin(url, src)
+            images.append(full_url)
+
+    data["images"] = list(set(images))[:15]
+
+    # ✅ 🔥 ลิงก์ + ชื่อ (แก้สำคัญ)
+    links = []
+    for a in soup.find_all("a"):
+        href = a.get("href")
+        text = a.get_text(strip=True)
+
+        if href and text:
+            full_url = urljoin(url, href)
+
+            # กันลิงก์ขยะ
+            if len(text) > 1 and not text.startswith("["):
+                links.append({
+                    "text": text,
+                    "url": full_url
+                })
+
+    data["links"] = links[:50]
 
     return data
 
