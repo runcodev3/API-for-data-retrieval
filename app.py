@@ -3,12 +3,13 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import os
+import time
 
 app = Flask(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# 🔥 AI เท่านั้น
+# 🔥 AI (เสถียร + retry + กันพัง)
 def ai_process(text):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -17,57 +18,57 @@ def ai_process(text):
         "Content-Type": "application/json"
     }
 
-    models = [
-        "mistralai/mistral-7b-instruct:free",
-        "openchat/openchat-7b:free",
-        "meta-llama/llama-3-8b-instruct:free"
-    ]
+    model = "mistralai/mistral-7b-instruct:free"
 
-    for model in models:
+    # 🔥 retry 3 รอบ
+    for attempt in range(3):
         try:
             data = {
                 "model": model,
                 "messages": [
                     {
                         "role": "system",
-                        "content": "คุณเป็น AI ที่เก่งในการสรุปและเรียบเรียงข้อความภาษาไทย"
+                        "content": "คุณคือ AI ที่สรุปและเรียบเรียงข้อความภาษาไทยให้เข้าใจง่าย"
                     },
                     {
                         "role": "user",
                         "content": f"""
-                        กรุณาทำ 2 อย่าง:
-                        1. สรุปเนื้อหาให้สั้น กระชับ เข้าใจง่าย
-                        2. เรียบเรียงเนื้อหาใหม่ให้ครบถ้วน แต่ความหมายเดิม
+สรุปและเรียบเรียงใหม่
 
-                        ตอบเป็นรูปแบบ:
-                        [SUMMARY]
-                        (สรุป)
+ตอบตาม format นี้เท่านั้น:
 
-                        [CONTENT]
-                        (เนื้อหาใหม่)
+SUMMARY:
+(สรุปสั้น)
 
-                        ข้อความ:
-                        {text[:4000]}
-                        """
+CONTENT:
+(เนื้อหาใหม่ ครบความหมายเดิม)
+
+ข้อความ:
+{text[:2000]}
+"""
                     }
                 ]
             }
 
-            res = requests.post(url, headers=headers, json=data, timeout=30)
+            res = requests.post(url, headers=headers, json=data, timeout=60)
 
             if res.status_code != 200:
+                print("STATUS ERROR:", res.status_code)
+                time.sleep(2)
                 continue
 
             result = res.json()
             content = result["choices"][0]["message"]["content"]
 
-            if "[SUMMARY]" in content and "[CONTENT]" in content:
-                summary = content.split("[SUMMARY]")[1].split("[CONTENT]")[0].strip()
-                rewritten = content.split("[CONTENT]")[1].strip()
+            # 🔥 parse
+            if "SUMMARY:" in content and "CONTENT:" in content:
+                summary = content.split("SUMMARY:")[1].split("CONTENT:")[0].strip()
+                rewritten = content.split("CONTENT:")[1].strip()
                 return summary, rewritten
 
-        except:
-            continue
+        except Exception as e:
+            print("AI ERROR:", e)
+            time.sleep(2)
 
     return None, None
 
@@ -85,6 +86,7 @@ def extract_all(url):
 
     data["title"] = soup.title.string if soup.title else "No Title"
 
+    # 🔥 เนื้อหาเต็ม
     content = []
     for tag in soup.find_all(["h1", "h2", "h3", "p", "li"]):
         text = tag.get_text(strip=True)
@@ -93,6 +95,7 @@ def extract_all(url):
 
     full_text = " ".join(content)
 
+    # 🔥 ใช้ AI
     summary, rewritten = ai_process(full_text)
 
     if summary is None:
@@ -101,6 +104,7 @@ def extract_all(url):
     data["summary"] = summary
     data["full_text"] = rewritten
 
+    # 🔥 รูป
     images = []
     for img in soup.find_all("img"):
         src = img.get("src")
@@ -109,7 +113,7 @@ def extract_all(url):
 
     data["images"] = list(set(images))[:20]
 
-    # ลิงก์
+    # 🔥 ลิงก์
     links = []
     for a in soup.find_all("a"):
         href = a.get("href")
@@ -137,7 +141,7 @@ def index():
 
         if "error" in result:
             if result["error"] == "AI_ERROR":
-                error = "❌ เกิดข้อผิดพลาด AI กรุณาลองใหม่"
+                error = "❌ AI ไม่ตอบหรือโหลดไม่ทัน กรุณาลองใหม่"
             else:
                 error = "❌ ไม่สามารถดึงข้อมูลเว็บได้"
             result = None
