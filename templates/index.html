@@ -69,7 +69,7 @@
 </head>
 <body>
 
-<h1>🤖 AI Web Extractor</h1>
+<h1>Summary of website URL information</h1>
 
 <form method="POST">
     <input name="url" placeholder="https://example.com">
@@ -87,10 +87,10 @@
 
     <h2>{{ result.title }}</h2>
 
-    <h3>📌 สรุป (AI)</h3>
+    <h3>📌 สรุป</h3>
     <p>{{ result.summary }}</p>
 
-    <h3>📄 เนื้อหา (AI เรียบเรียง)</h3>
+    <h3>📄 เนื้อหา</h3>
     <div class="scroll">
         <p>{{ result.full_text }}</p>
     </div>
