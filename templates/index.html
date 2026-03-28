@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Extractor Pro</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        input {
+            width: 60%;
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+        }
+
+        button {
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: none;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+        }
+
+        .box {
+            margin-top: 20px;
+            background: #111827;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: left;
+        }
+
+        img {
+            max-width: 150px;
+            margin: 5px;
+            border-radius: 10px;
+        }
+
+        a {
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🌐 Web Extractor Pro</h1>
+
+<form method="POST">
+    <input name="url" placeholder="https://example.com">
+    <button>ดึงข้อมูล</button>
+</form>
+
+{% if result %}
+<div class="box">
+    <h2>{{ result.title }}</h2>
+
+    <h3>📌 สรุป</h3>
+    <p>{{ result.summary }}</p>
+
+    <h3>📄 เนื้อหา</h3>
+    <p>{{ result.full_text[:2000] }}...</p>
+
+    <h3>🖼 รูป</h3>
+    {% for img in result.images %}
+        <img src="{{ img }}">
+    {% endfor %}
+
+    <h3>🔗 ลิงก์</h3>
+    {% for link in result.links %}
+        <div><a href="{{ link }}">{{ link }}</a></div>
+    {% endfor %}
+</div>
+{% endif %}
+
+</body>
+</html>
