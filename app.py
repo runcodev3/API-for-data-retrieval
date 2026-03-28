@@ -13,19 +13,15 @@ def extract_all(url):
 
     data = {}
 
-    # ✅ title
     data["title"] = soup.title.string if soup.title else "No Title"
 
-    # ✅ เนื้อหา (paragraph)
     paragraphs = [p.get_text() for p in soup.find_all("p")]
     full_text = " ".join(paragraphs)
     data["full_text"] = full_text
 
-    # ✅ summary (เอา 5 ประโยคแรก)
     sentences = full_text.split(".")
     data["summary"] = ". ".join(sentences[:5])
 
-    # ✅ 🔥 รูป (แก้สำคัญ: urljoin)
     images = []
     for img in soup.find_all("img"):
         src = img.get("src")
@@ -35,7 +31,6 @@ def extract_all(url):
 
     data["images"] = list(set(images))[:15]
 
-    # ✅ 🔥 ลิงก์ + ชื่อ (แก้สำคัญ)
     links = []
     for a in soup.find_all("a"):
         href = a.get("href")
@@ -44,7 +39,6 @@ def extract_all(url):
         if href and text:
             full_url = urljoin(url, href)
 
-            # กันลิงก์ขยะ
             if len(text) > 1 and not text.startswith("["):
                 links.append({
                     "text": text,
