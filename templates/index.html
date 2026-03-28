@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Web Extractor Pro</title>
+    <title>AI Web Extractor</title>
     <style>
         body {
             font-family: sans-serif;
@@ -57,26 +57,40 @@
             max-height: 300px;
             overflow: auto;
         }
+
+        .error {
+            background: red;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
 
-<h1>🌐 Web Extractor Pro</h1>
+<h1>🤖 AI Web Extractor</h1>
 
 <form method="POST">
     <input name="url" placeholder="https://example.com">
     <button>ดึงข้อมูล</button>
 </form>
 
+{% if error %}
+<div class="error">
+    {{ error }}
+</div>
+{% endif %}
+
 {% if result %}
 <div class="box">
 
     <h2>{{ result.title }}</h2>
 
-    <h3>📌 สรุป (สั้น)</h3>
+    <h3>📌 สรุป (AI)</h3>
     <p>{{ result.summary }}</p>
 
-    <h3>📄 เนื้อหา (ครบ)</h3>
+    <h3>📄 เนื้อหา (AI เรียบเรียง)</h3>
     <div class="scroll">
         <p>{{ result.full_text }}</p>
     </div>
