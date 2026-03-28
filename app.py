@@ -8,6 +8,7 @@ app = Flask(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
+# 🔥 AI เท่านั้น
 def ai_process(text):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -35,8 +36,15 @@ def ai_process(text):
                         "role": "user",
                         "content": f"""
                         กรุณาทำ 2 อย่าง:
-                        1. สรุปเนื้อหาให้สั้น เข้าใจง่าย
-                        2. เรียบเรียงเนื้อหาใหม่ให้อ่านง่าย แต่ความหมายเดิม
+                        1. สรุปเนื้อหาให้สั้น กระชับ เข้าใจง่าย
+                        2. เรียบเรียงเนื้อหาใหม่ให้ครบถ้วน แต่ความหมายเดิม
+
+                        ตอบเป็นรูปแบบ:
+                        [SUMMARY]
+                        (สรุป)
+
+                        [CONTENT]
+                        (เนื้อหาใหม่)
 
                         ข้อความ:
                         {text[:4000]}
@@ -46,25 +54,32 @@ def ai_process(text):
             }
 
             res = requests.post(url, headers=headers, json=data, timeout=30)
-            result = res.json()
 
+            if res.status_code != 200:
+                continue
+
+            result = res.json()
             content = result["choices"][0]["message"]["content"]
 
-            parts = content.split("2.")
-            summary = parts[0]
-            rewritten = parts[1] if len(parts) > 1 else content
-
-            return summary.strip(), rewritten.strip()
+            if "[SUMMARY]" in content and "[CONTENT]" in content:
+                summary = content.split("[SUMMARY]")[1].split("[CONTENT]")[0].strip()
+                rewritten = content.split("[CONTENT]")[1].strip()
+                return summary, rewritten
 
         except:
             continue
 
-    return "สรุปไม่ได้", text
+    return None, None
 
+
+# 🔥 ดึงข้อมูลเว็บ
 def extract_all(url):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    res = requests.get(url, headers=headers, timeout=10)
-    soup = BeautifulSoup(res.text, "html.parser")
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+    except:
+        return {"error": "FETCH_ERROR"}
 
     data = {}
 
@@ -80,10 +95,12 @@ def extract_all(url):
 
     summary, rewritten = ai_process(full_text)
 
+    if summary is None:
+        return {"error": "AI_ERROR"}
+
     data["summary"] = summary
     data["full_text"] = rewritten
 
-    # รูป
     images = []
     for img in soup.find_all("img"):
         src = img.get("src")
@@ -92,6 +109,7 @@ def extract_all(url):
 
     data["images"] = list(set(images))[:20]
 
+    # ลิงก์
     links = []
     for a in soup.find_all("a"):
         href = a.get("href")
@@ -111,12 +129,20 @@ def extract_all(url):
 @app.route("/", methods=["GET", "POST"])
 def index():
     result = None
+    error = None
 
     if request.method == "POST":
         url = request.form["url"]
         result = extract_all(url)
 
-    return render_template("index.html", result=result)
+        if "error" in result:
+            if result["error"] == "AI_ERROR":
+                error = "❌ เกิดข้อผิดพลาด AI กรุณาลองใหม่"
+            else:
+                error = "❌ ไม่สามารถดึงข้อมูลเว็บได้"
+            result = None
+
+    return render_template("index.html", result=result, error=error)
 
 
 if __name__ == "__main__":
