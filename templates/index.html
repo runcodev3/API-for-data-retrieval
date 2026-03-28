@@ -7,20 +7,28 @@
             font-family: sans-serif;
             background: linear-gradient(135deg, #0f172a, #1e293b);
             color: white;
-            text-align: center;
             padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form {
+            text-align: center;
+            margin-bottom: 20px;
         }
 
         input {
             width: 60%;
             padding: 12px;
-            border-radius: 12px;
+            border-radius: 10px;
             border: none;
         }
 
         button {
             padding: 12px 20px;
-            border-radius: 12px;
+            border-radius: 10px;
             border: none;
             background: #3b82f6;
             color: white;
@@ -28,11 +36,10 @@
         }
 
         .box {
-            margin-top: 20px;
             background: #111827;
             padding: 20px;
             border-radius: 15px;
-            text-align: left;
+            margin-top: 20px;
         }
 
         img {
@@ -43,6 +50,12 @@
 
         a {
             color: #60a5fa;
+            text-decoration: none;
+        }
+
+        .scroll {
+            max-height: 300px;
+            overflow: auto;
         }
     </style>
 </head>
@@ -57,23 +70,35 @@
 
 {% if result %}
 <div class="box">
+
     <h2>{{ result.title }}</h2>
 
     <h3>📌 สรุป</h3>
     <p>{{ result.summary }}</p>
 
     <h3>📄 เนื้อหา</h3>
-    <p>{{ result.full_text[:2000] }}...</p>
+    <div class="scroll">
+        <p>{{ result.full_text }}</p>
+    </div>
 
     <h3>🖼 รูป</h3>
-    {% for img in result.images %}
-        <img src="{{ img }}">
-    {% endfor %}
+    <div class="scroll">
+        {% for img in result.images %}
+            <img src="{{ img }}">
+        {% endfor %}
+    </div>
 
     <h3>🔗 ลิงก์</h3>
-    {% for link in result.links %}
-        <div><a href="{{ link }}">{{ link }}</a></div>
-    {% endfor %}
+    <div class="scroll">
+        {% for link in result.links %}
+            <div>
+                <a href="{{ link.url }}" target="_blank">
+                    🔗 {{ link.text }}
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+
 </div>
 {% endif %}
 
