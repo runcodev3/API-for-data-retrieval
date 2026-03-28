@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# 🔥 AI เสถียรสุด (multi-model + retry)
+# 🔥 AI (Router + fallback + retry)
 def ai_process(text):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -18,10 +18,11 @@ def ai_process(text):
         "Content-Type": "application/json"
     }
 
+    # 🔥 ใช้ Router ก่อน แล้ว fallback
     models = [
+        "openrouter/free",
         "mistralai/mistral-7b-instruct:free",
-        "meta-llama/llama-3-8b-instruct:free",
-        "openchat/openchat-7b:free"
+        "meta-llama/llama-3-8b-instruct:free"
     ]
 
     for model in models:
@@ -39,13 +40,13 @@ def ai_process(text):
                             "content": f"""
 สรุปและเรียบเรียงใหม่
 
-ตอบแบบนี้:
+ตอบตามนี้เท่านั้น:
 
 SUMMARY:
-(สั้น กระชับ เข้าใจง่าย)
+(สรุปสั้น กระชับ)
 
 CONTENT:
-(ครบเหมือนเดิม แต่เรียบเรียงใหม่ให้อ่านง่าย)
+(เนื้อหาครบเหมือนเดิม แต่เรียบเรียงให้อ่านง่าย)
 
 ข้อความ:
 {text[:1500]}
@@ -67,7 +68,7 @@ CONTENT:
                 if "SUMMARY:" in content and "CONTENT:" in content:
                     summary = content.split("SUMMARY:")[1].split("CONTENT:")[0].strip()
                     rewritten = content.split("CONTENT:")[1].strip()
-                    print("SUCCESS MODEL:", model)
+                    print("SUCCESS:", model)
                     return summary, rewritten
 
             except Exception as e:
@@ -145,7 +146,7 @@ def index():
 
         if "error" in result:
             if result["error"] == "AI_ERROR":
-                error = "❌ AI ไม่ตอบ (โมเดลฟรีคิวเต็ม) ลองใหม่อีกครั้ง"
+                error = "⚠️ AI กำลังถูกใช้งานเยอะ กรุณาลองใหม่"
             else:
                 error = "❌ ไม่สามารถดึงข้อมูลเว็บได้"
             result = None
