@@ -6,6 +6,61 @@ import os
 
 app = Flask(__name__)
 
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+def ai_process(text):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    models = [
+        "mistralai/mistral-7b-instruct:free",
+        "openchat/openchat-7b:free",
+        "meta-llama/llama-3-8b-instruct:free"
+    ]
+
+    for model in models:
+        try:
+            data = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "คุณเป็น AI ที่เก่งในการสรุปและเรียบเรียงข้อความภาษาไทย"
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""
+                        กรุณาทำ 2 อย่าง:
+                        1. สรุปเนื้อหาให้สั้น เข้าใจง่าย
+                        2. เรียบเรียงเนื้อหาใหม่ให้อ่านง่าย แต่ความหมายเดิม
+
+                        ข้อความ:
+                        {text[:4000]}
+                        """
+                    }
+                ]
+            }
+
+            res = requests.post(url, headers=headers, json=data, timeout=30)
+            result = res.json()
+
+            content = result["choices"][0]["message"]["content"]
+
+            parts = content.split("2.")
+            summary = parts[0]
+            rewritten = parts[1] if len(parts) > 1 else content
+
+            return summary.strip(), rewritten.strip()
+
+        except:
+            continue
+
+    return "สรุปไม่ได้", text
+
 def extract_all(url):
     headers = {"User-Agent": "Mozilla/5.0"}
     res = requests.get(url, headers=headers, timeout=10)
@@ -15,35 +70,38 @@ def extract_all(url):
 
     data["title"] = soup.title.string if soup.title else "No Title"
 
-    paragraphs = [p.get_text() for p in soup.find_all("p")]
-    full_text = " ".join(paragraphs)
-    data["full_text"] = full_text
+    content = []
+    for tag in soup.find_all(["h1", "h2", "h3", "p", "li"]):
+        text = tag.get_text(strip=True)
+        if text:
+            content.append(text)
 
-    sentences = full_text.split(".")
-    data["summary"] = ". ".join(sentences[:5])
+    full_text = " ".join(content)
 
+    summary, rewritten = ai_process(full_text)
+
+    data["summary"] = summary
+    data["full_text"] = rewritten
+
+    # รูป
     images = []
     for img in soup.find_all("img"):
         src = img.get("src")
         if src:
-            full_url = urljoin(url, src)
-            images.append(full_url)
+            images.append(urljoin(url, src))
 
-    data["images"] = list(set(images))[:15]
+    data["images"] = list(set(images))[:20]
 
     links = []
     for a in soup.find_all("a"):
         href = a.get("href")
         text = a.get_text(strip=True)
 
-        if href and text:
-            full_url = urljoin(url, href)
-
-            if len(text) > 1 and not text.startswith("["):
-                links.append({
-                    "text": text,
-                    "url": full_url
-                })
+        if href and text and len(text) > 1:
+            links.append({
+                "text": text,
+                "url": urljoin(url, href)
+            })
 
     data["links"] = links[:50]
 
