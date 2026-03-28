@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# 🔥 AI (เสถียร + retry + กันพัง)
+# 🔥 AI เสถียรสุด (multi-model + retry)
 def ai_process(text):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -18,57 +18,61 @@ def ai_process(text):
         "Content-Type": "application/json"
     }
 
-    model = "mistralai/mistral-7b-instruct:free"
+    models = [
+        "mistralai/mistral-7b-instruct:free",
+        "meta-llama/llama-3-8b-instruct:free",
+        "openchat/openchat-7b:free"
+    ]
 
-    # 🔥 retry 3 รอบ
-    for attempt in range(3):
-        try:
-            data = {
-                "model": model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "คุณคือ AI ที่สรุปและเรียบเรียงข้อความภาษาไทยให้เข้าใจง่าย"
-                    },
-                    {
-                        "role": "user",
-                        "content": f"""
+    for model in models:
+        for attempt in range(2):
+            try:
+                data = {
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "สรุปและเรียบเรียงข้อความภาษาไทยให้เข้าใจง่าย"
+                        },
+                        {
+                            "role": "user",
+                            "content": f"""
 สรุปและเรียบเรียงใหม่
 
-ตอบตาม format นี้เท่านั้น:
+ตอบแบบนี้:
 
 SUMMARY:
-(สรุปสั้น)
+(สั้น กระชับ เข้าใจง่าย)
 
 CONTENT:
-(เนื้อหาใหม่ ครบความหมายเดิม)
+(ครบเหมือนเดิม แต่เรียบเรียงใหม่ให้อ่านง่าย)
 
 ข้อความ:
-{text[:2000]}
+{text[:1500]}
 """
-                    }
-                ]
-            }
+                        }
+                    ]
+                }
 
-            res = requests.post(url, headers=headers, json=data, timeout=60)
+                res = requests.post(url, headers=headers, json=data, timeout=90)
 
-            if res.status_code != 200:
-                print("STATUS ERROR:", res.status_code)
+                if res.status_code != 200:
+                    print("MODEL FAIL:", model, res.status_code)
+                    time.sleep(2)
+                    continue
+
+                result = res.json()
+                content = result["choices"][0]["message"]["content"]
+
+                if "SUMMARY:" in content and "CONTENT:" in content:
+                    summary = content.split("SUMMARY:")[1].split("CONTENT:")[0].strip()
+                    rewritten = content.split("CONTENT:")[1].strip()
+                    print("SUCCESS MODEL:", model)
+                    return summary, rewritten
+
+            except Exception as e:
+                print("ERROR:", model, e)
                 time.sleep(2)
-                continue
-
-            result = res.json()
-            content = result["choices"][0]["message"]["content"]
-
-            # 🔥 parse
-            if "SUMMARY:" in content and "CONTENT:" in content:
-                summary = content.split("SUMMARY:")[1].split("CONTENT:")[0].strip()
-                rewritten = content.split("CONTENT:")[1].strip()
-                return summary, rewritten
-
-        except Exception as e:
-            print("AI ERROR:", e)
-            time.sleep(2)
 
     return None, None
 
@@ -95,7 +99,7 @@ def extract_all(url):
 
     full_text = " ".join(content)
 
-    # 🔥 ใช้ AI
+    # 🔥 ใช้ AI เท่านั้น
     summary, rewritten = ai_process(full_text)
 
     if summary is None:
@@ -141,7 +145,7 @@ def index():
 
         if "error" in result:
             if result["error"] == "AI_ERROR":
-                error = "❌ AI ไม่ตอบหรือโหลดไม่ทัน กรุณาลองใหม่"
+                error = "❌ AI ไม่ตอบ (โมเดลฟรีคิวเต็ม) ลองใหม่อีกครั้ง"
             else:
                 error = "❌ ไม่สามารถดึงข้อมูลเว็บได้"
             result = None
